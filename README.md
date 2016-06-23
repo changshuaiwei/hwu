@@ -32,13 +32,24 @@ hwu --bfile NIC --hwu --dv 3 --cov all.cov.txt --flt --mp 20 --force-core  --cov
 --file <string>: read text format data files
 
 --hwu: perform HWU analysis
+
 --out <string>: output files
+
 --wIBS-wt: use weighted IBS to construct latent population structure
+
 --IBS-wt: use IBS to construct latent population structure
+
 --cov-wt <string> : use covariates in <string> files to construct latent population structure
+
 --dv <int>: output the most significant <int> SNPs (for high demensional scan)
+
 --write-Wmt <string> : output kappa matrix for latent population structure to <string> file
+
 --flt : use float accuracy when calculate the rank of SNPs (for high demensional scan)
+
 --read-Wmt <string>: read kappa matrix stored in <string> file
+
 --cov <string>: read covariates that used for covariates adjustment in <string> file
+
 --PCwt <int>: calculate the first <int> eigen vectors for matrix kappa
+
