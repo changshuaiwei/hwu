@@ -25,7 +25,7 @@ hwu --bfile NIC --hwu --wIBS-wt --out NIC.rst
 
 hwu --bfile NIC --hwu --dv 3 --cov all.cov.txt --flt --mp 20 --force-core  --cov-wt cov1.txt --out NIC.rst
 
-#Options
+##Options
 
 --bfile <string> : read plink binary format data files
 
