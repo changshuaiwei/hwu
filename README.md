@@ -28,7 +28,9 @@ hwu --bfile NIC --hwu --dv 3 --cov all.cov.txt --flt --mp 20 --force-core  --cov
 #Options
 
 --bfile <string> : read plink binary format data files
+
 --file <string>: read text format data files
+
 --hwu: perform HWU analysis
 --out <string>: output files
 --wIBS-wt: use weighted IBS to construct latent population structure
