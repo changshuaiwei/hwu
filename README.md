@@ -71,3 +71,7 @@ need to build boost lib
     run bootstrap.bat
     run b2
     go to properties->linker->general->additional library, add "$Root$\boost\boost_1_55_0\stage\lib"
+
+###For g++
+
+    g++ -static -L boost_1_55_0/stage/lib -I eigen -I boost_1_55_0 -pthread -msse2 *.cpp -lboost_system -lboost_thread -lrt -w -O3 -o hwu
