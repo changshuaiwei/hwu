@@ -9,8 +9,7 @@ YEAR: 2016
 LICENSE: Released under GNU General Public License, v2 (see
 COPYING.txt)
 
-DOCUMENTATION: http://changshuaiwei.github.io/
-
+Precompiled excutable for windows and unix, as well as example data files can be found at http://changshuaiwei.github.io/software.html#HWU
 
 COMPILATION: You will need a standard C++ compiler such as GNU g++  (version 3), as well as Boost c++ library (v1.55.0) and Eigen c++ library(v3.2).
 
