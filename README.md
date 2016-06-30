@@ -52,3 +52,22 @@ hwu --bfile NIC --hwu --dv 3 --cov all.cov.txt --flt --mp 20 --force-core  --cov
 
 --PCwt `int`: calculate the first `int` eigen vectors for matrix kappa
 
+##compilation
+
+###For visual studio
+
+Make sure you compile with optimization enabled. This can easily gain you a factor of ten or more.
+
+Configuring your project for optimal performance
+
+    Open the project properties page (Project | Properties), in the C/C++ folder open the Code Generation page. Under Enable Enhanced Instruction Set, switch to Streaming SIMD Extensions 2 (/arch:SSE2)
+    Open the project properties page (Project | Properties), in the C/C++ folder open the Language page. Under Open MP Support, switch to Yes (/openmp).
+    In case you are on a 64 bit machine, open the configuration manager (Project | Properties | Configuration Manager...). From here, select <New...> under Active solution platform:. Next, choose x64 and confirm the dialog with OK. Once you are back in the main window, switch from Win32 to x64 in order to create 64 bit builds of your program. 
+
+Since boost::thread is used here, we might not use openMP for Eigen
+
+need to build boost lib
+
+    run bootstrap.bat
+    run b2
+    go to properties->linker->general->additional library, add "$Root$\boost\boost_1_55_0\stage\lib"
