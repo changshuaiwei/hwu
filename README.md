@@ -34,6 +34,8 @@ hwu --bfile NIC --hwu --dv 3 --cov all.cov.txt --flt --mp 20 --force-core  --cov
 
 --out `string`: output files
 
+--mp `int`: parallelize computations to `int` numbers of cpu cores
+
 --wIBS-wt: use weighted IBS to construct latent population structure
 
 --IBS-wt: use IBS to construct latent population structure
