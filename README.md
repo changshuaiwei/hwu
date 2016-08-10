@@ -70,6 +70,7 @@ Since boost::thread is used here, we might not use openMP for Eigen
 
 need to build boost lib
 
+    use the VS comand prompt
     run bootstrap.bat
     run b2
     go to properties->linker->general->additional library, add "$Root$\boost\boost_1_55_0\stage\lib"
