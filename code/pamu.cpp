@@ -91,6 +91,7 @@ int main(int argc, char* argv[])
 	//hwu --file NDs --cov cov.txt --hwu --dv 8 --gsim-dist --cov-wt cov2.txt --write-Wmt --out ccc
 	//hwu --file NDs --hwu --dv 8 --read-Wmt ccc.wmt --PCwt 2 --flt --out ccc2
 	//hwu --file NDs --hwu --dv 8 --read-Wmt ccc.wmt --PCwt 2 --mp 10 --force-core --out ccc2
+	//hwu --file NDs --hwu --screen 8 --read-Wmt ccc.wmt --PCwt 2 --mp 10 --force-core --out ccc2
 	if(par::hwu_run){
 		P.assocHWU();
 	}
@@ -306,6 +307,8 @@ void Pamu::assocHWU()
 
 	if(par::appx_davis || par::appx_davis_P){
 		asso.sgLocusRank();
+	}else if(par::hwu_screening){
+		asso.sgLocusScreen();
 	}else{
 		asso.sgLocusAssoc();
 	}

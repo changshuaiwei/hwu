@@ -28,7 +28,7 @@ void egHWU::rankY()
 
 	_Y.resize(_n_sub,1);
 	for(int i=0; i<_n_sub; i++){
-		_Y(i,0)=ytmp[i];
+		_Y(i,0)=ytmp[i]/1.0/_n_sub;
 	}
 
 }
@@ -53,6 +53,12 @@ void egHWU::transX()
 
 	GTmat_ inv=_X.transpose()*_X;
 	_XXinv=inv.inverse();
+}
+
+void egHWU::prepare_trait_sim()
+{
+	//for now just implement simple one
+	_TraitSimFlt = _Y * _Y.transpose();
 }
 
 void egHWU::prepareY()
@@ -179,14 +185,14 @@ void egHWU::weightPC(int size, string outputfile)
 
 void egHWU::wtZscore(string outputfile)
 {
-	gfun::printLOG("Writing Zscore Result at [ " + outputfile + " ]\n");
+	gfun::printLOG("Writing Scanning Result at [ " + outputfile + " ]\n");
 
 	ofstream result(outputfile.c_str());
 	if(!result) gfun::error("\ncould not open the result file\n");
-	result<<"#result of Zscore scanning (0=A1A1, 1=A1A2, 2=A2A2)\n";
+	result<<"#result of scanning (0=A1A1, 1=A1A2, 2=A2A2)\n";
 
 	result<<"#order\t"<<"Chr\tName\tPos\tBp\tAllel1\tAllel2\t"
-		<<"Z_score\n";
+		<<"Utility_score\n";
 
 	Locus * loc=0;
 	for(int i=0; i<_bk_vec_pvalue.size(); i++){
@@ -234,7 +240,7 @@ void egHWU::wtResult(string outputfile)
 
 	Locus * loc=0;
 	for(int i=0; i<_vec_pvalue.size(); i++){
-		if(par::appx_davis || par::appx_davis_P){
+		if(par::hwu_screening || par::appx_davis || par::appx_davis_P){
 			loc=_datafile->getLocus(_idx[i]);
 		}else{
 			loc=_datafile->getLocus(i);
@@ -265,12 +271,53 @@ void egHWU::wtResult(string outputfile)
 
 	result.close();
 
-	if(par::appx_davis || par::appx_davis_P){
+	if(par::hwu_screening || par::appx_davis || par::appx_davis_P){
 		string outfile=outputfile+".zscore.txt";
 		wtZscore(outfile);
 	}
 }
 
+void egHWU::sgLocusScreen()
+{
+	transX();
+	prepareY();
+	prepare_trait_sim();
+	stdW();
+
+	//if(par::multi_core){
+	//	D2F();
+	//	getRankZfltMp();
+	//}else{
+	//	if(!par::hwu_flt){
+	//		getRankZ();
+	//	}else{
+	//		D2F();
+	//		getRankZfloat();
+	//	}
+	//}
+
+	D2F();
+	getRankUfltMp();
+
+
+	vector<double> x;
+
+	cout<<"\nP-value for ranked:\n";
+	double pvalue;
+	for(int i_=0; i_<_idx.size(); i_++){
+		int i=_idx[i_];
+		cout<<i_+1<<"th SNP";
+		x.clear();
+		//cout<<":"<<(_datafile->getLocus(i))->name;
+		prepareX(i,x);
+
+		pvalue=hwu_liu(x);
+		_vec_pvalue.push_back(pvalue);
+		cout<<"\r";
+		cout.flush();
+	}
+
+}
 
 void egHWU::sgLocusRank()
 {
@@ -404,6 +451,55 @@ void egHWU::getRankZfloat()
 	_vec_pvalue.clear();
 }
 
+void egHWU::getRankUfltMp()
+{
+
+	int n_td=boost::thread::hardware_concurrency()-1;
+
+	gfun::printLOG("There are " + int2str(n_td + 1) + " cores, and we require " + int2str(par::n_core) + " cores\n");
+
+
+	if(par::force_core){
+		n_td=par::n_core;//might exceed memory when number is large.
+		gfun::printLOG("Using " + int2str(n_td) + " cores\n");
+	}else{
+		if(n_td>par::n_core)	n_td=par::n_core;
+		gfun::printLOG("Using " + int2str(n_td) + " cores\n");
+	}
+
+	_vec_pvalue.resize(_n_snp);
+	_SNPcounter=0;
+
+	vector<int> idx_start, idx_length;
+	splitCal(n_td,idx_start,idx_length);
+
+	boost::thread_group threads;
+
+	for(int i=0; i<idx_start.size(); i++){
+		threads.add_thread(new boost::thread(&egHWU::calUMp, this, idx_start[i], idx_length[i]));
+
+		//threads.create_thread( boost::bind (&egHWU::calZMp, boost::ref(this), boost::ref(idx_start[i]), boost::ref(idx_length[i]) ) );
+	}
+
+	threads.join_all();
+
+	cout<<"\nSorting standardized HWU\n";
+	vector<int> tmpidx, idx;
+	Stat_fuc::indexx(_vec_pvalue,tmpidx);
+
+	int count=0;
+	for(int i=0; i<tmpidx.size(); i++){
+		idx.push_back(tmpidx[i]);
+		count++;
+
+		//if(count>=par::n_davis_snp) break;
+		if(count>=par::n_hwu_screening) break;
+	}
+	_idx=idx;
+	_bk_vec_pvalue=_vec_pvalue;
+	_vec_pvalue.clear();
+}
+
 void egHWU::getRankZfltMp()
 {
 
@@ -517,6 +613,35 @@ void egHWU::calZMp(int start, int length)
 	}
 }
 
+void egHWU::calUMp(int start, int length)
+{
+
+	vector<float> x; double p;
+	int i_=0;
+	for(int i=0; i<length; i++){
+		i_=start + i;
+
+		x.clear();
+
+		{
+			boost::shared_lock<boost::shared_mutex> lock(_mutex);
+			prepareXfloat(i_,x);
+			p=0.0 - hwu_inter_stdUfloat(x);
+			_vec_pvalue[i_]=p;
+			lock.unlock();
+		}
+
+		{
+			boost::unique_lock<boost::shared_mutex> lock(_mutex2);
+			_SNPcounter++;
+			cout<<"\r"<<_SNPcounter<<"th SNP";
+			cout.flush();
+			lock.unlock();
+		}
+
+	}
+}
+
 void egHWU::splitCal(int n_td, vector<int> & idx_start, vector<int> & idx_length)
 {
 	int length = int (double (_n_snp) / double (n_td)) ;
@@ -610,6 +735,40 @@ inline float egHWU::gsim(float g1, float g2)
 	}else{
 		return exp(0.0-(g1-g2)*(g1-g2));
 	}
+}
+
+double egHWU::hwu_interFloat_screen(vector<float> & x, GTmatF_ & Wt)
+{
+	Wt.resize(_n_sub,_n_sub);
+
+	float U_flt=0;
+	float tmp=0;
+	for(int i=0; i<_n_sub; i++){
+		for(int j=i; j<_n_sub; j++){
+			if(i==j){
+				Wt(i,j)=0;
+			}else{
+				tmp=_Kappaflt.coeff(i,j) * gsim ( x[i] , x[j] );
+				Wt(i,j)=tmp;
+				Wt(j,i)=Wt.coeff(i,j);
+				U_flt += tmp * _TraitSimFlt.coeff(i,j);
+			}
+		}
+	}
+
+	//cout<<_Y.sum()<<"\n";
+	//cout<<_Y.squaredNorm()<<"\n";
+
+	//double U= (_Yflt.transpose() * (Wt * _Yflt) ).sum();
+
+	//double U = ( ( Wt.array() * _TraitSimFlt.array() ).matrix() ).sum() / _n_sub /(_n_sub - 1.0);
+
+	double U = U_flt * 2.0 / _n_sub /(_n_sub - 1.0);
+
+	//Wt=Wt-(_Xflt*_XXinvflt)*(_Xflt.transpose()*Wt);
+	//Wt=Wt-(Wt*_Xflt)*(_XXinvflt*_Xflt.transpose());
+
+	return U;
 }
 
 double egHWU::hwu_interFloat(vector<float> & x, GTmatF_ & Wt)
@@ -714,6 +873,20 @@ double egHWU::hwu_inter_Zfloat(vector<float> & x)
 	double var=2 * Wt.squaredNorm();
 
 	double Z= (U-mu) / sqrt(var);
+
+	return Z;
+}
+
+double egHWU::hwu_inter_stdUfloat(vector<float> & x)
+{
+	GTmatF_ Wt;
+
+	double U=hwu_interFloat_screen(x,Wt);
+
+	//double mu=Wt.trace();
+	double var= Wt.squaredNorm()/ _n_sub / (_n_sub - 1.0);
+
+	double Z= U / sqrt(var);
 
 	return Z;
 }

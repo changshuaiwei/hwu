@@ -397,6 +397,11 @@ void gfun::setPar(CArg &a)
 		}
 	}
 
+	if(a.find("--screen")){
+		par::hwu_screening =true;
+		par::n_hwu_screening=str2int(a.value("--screen"));
+	}
+
 	if(a.find("--stdw")){
 		par::std_weight=true;
 	}
@@ -745,6 +750,8 @@ bool par::pj_Y_fwd=false;
 double par::pj_threshold=0.2;
 bool par::appx_davis=false;
 bool par::appx_davis_P=false;
+bool par::hwu_screening=false;
+int par::n_hwu_screening=1;
 bool par::mm_davis=true;
 int par::n_davis_snp=1000;
 int par::n_davis_dim=20;

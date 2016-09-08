@@ -194,17 +194,21 @@ public:
 
 	void sgLocusAssoc();
 	void sgLocusRank();
+	void sgLocusScreen();
 	void wtResult(string outputfile);
 
 protected:
 	void rankY();
 	void prepareY();
+	void prepare_trait_sim();
 	void getRankZ();
 	void getRankZfloat();
 
 	void getRankZfltMp();//multiple thread
+	void getRankUfltMp();//multiple thread
 
 	void calZMp(int start, int length);
+	void calUMp(int start, int length);
 	//void calZMpp(int start, int length, GTmatF_ & Wt, GTmatF_ & Xf, GTmatF_ & Yf, GTmatF_ & XXinvf);
 	void splitCal(int n_td, vector<int> & idx_start, vector<int> & idx_length);
 
@@ -226,9 +230,11 @@ protected:
 	double hwu_inter_p(vector<double> & x);//not accurate, use normal approx
 	double hwu_liu(vector<double> & x);
 
+	double hwu_inter_stdUfloat(vector<float> & x);
 	double hwu_inter_Zfloat(vector<float> & x);
 	//double hwu_inter_ZfltMP(vector<float> & x, GTmatF_ & Wt, GTmatF_ & Xf, GTmatF_ & Yf, GTmatF_ & XXinvf);
 	double hwu_interFloat(vector<float> & x, GTmatF_ & Wt);
+	double hwu_interFloat_screen(vector<float> & x, GTmatF_ & Wt);
 
 	void transX();
 	void EDweight(GTmat_ & cov, GTmat_ & Kappa, GTvec_ & weight);
@@ -271,6 +277,7 @@ protected:
 	GTmat_ _Kappa;
 
 	GTmat_ _Kappaflt;
+	GTmat_ _TraitSimFlt;
 
 	int _SNPcounter;
 

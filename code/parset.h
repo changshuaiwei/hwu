@@ -178,6 +178,8 @@ public:
 
 	static bool appx_davis;
 	static bool appx_davis_P;
+	static bool hwu_screening;
+	static int n_hwu_screening;
 	static bool mm_davis;
 	static int n_davis_snp;
 	static int n_davis_dim;
