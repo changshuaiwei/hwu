@@ -24,6 +24,10 @@ hwu --bfile NIC --hwu --wIBS-wt --out NIC.rst
 
 hwu --bfile NIC --hwu --dv 3 --cov all.cov.txt --flt --mp 20 --force-core  --cov-wt cov1.txt --out NIC.rst
 
+3:another complicated one
+
+hwu --bfile NIC --hwu --screen 2 --wIBS-wt --mp 7  --PCwt 20 --out NIC.rst
+
 ##Options
 
 --bfile `string` : read plink binary format data files
@@ -53,6 +57,8 @@ hwu --bfile NIC --hwu --dv 3 --cov all.cov.txt --flt --mp 20 --force-core  --cov
 --cov `string`: read covariates that used for covariates adjustment in `string` file
 
 --PCwt `int`: calculate the first `int` eigen vectors for matrix kappa
+
+--screen `int`: screen SNPs using standardized HWU, and calculate p-value of highest ranked `int` SNPs (for ultra-high demensional scan)
 
 ##compilation
 
