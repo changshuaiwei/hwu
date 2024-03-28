@@ -139,7 +139,6 @@ void egHWU::sgLocusAssoc()
 		prepareX(i,x);
 		// cout<<Stat_fuc::mean(x)<<"\n";
 		// cout<<Stat_fuc::norm(x)<<"\n";
-
 		pvalue=hwu_liu(x);
 
 		_vec_pvalue.push_back(pvalue);
@@ -900,6 +899,14 @@ double egHWU::hwu_inter_stdUfloat(vector<float> & x)
 
 double egHWU::hwu_liu(vector<double> & x)
 {
+	if(Stat_fuc::norm(x) < 1e-10){
+		_df_vec.push_back(-1);
+		_ncp_vec.push_back(-1);
+		_q_vec.push_back(-1);
+		_weightU.push_back(0);
+		return 0.5;
+	}
+
 	GTmat_ Wt;
 
 	double U=hwu_inter(x,Wt);
