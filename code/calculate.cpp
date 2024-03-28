@@ -289,6 +289,17 @@ double Stat_fuc::sum(vector<double> & arr)
 	return tmp;
 }
 
+double Stat_fuc::norm(vector<double> & arr)
+{
+	double tmp=0;
+	for(int i=0; i<arr.size(); i++){
+		tmp+=arr[i]*arr[i];
+	}
+	if(arr.size()>0) tmp/=double(arr.size());
+	
+	return tmp;
+}
+
 double Stat_fuc::gammp(const double a, const double x)
 {
 	double gamser,gammcf,gln;

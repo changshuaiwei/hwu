@@ -137,7 +137,8 @@ void egHWU::sgLocusAssoc()
 		x.clear();
 		//cout<<":"<<(_datafile->getLocus(i))->name;
 		prepareX(i,x);
-
+		// cout<<Stat_fuc::mean(x)<<"\n";
+		// cout<<Stat_fuc::norm(x)<<"\n";
 		pvalue=hwu_liu(x);
 
 		_vec_pvalue.push_back(pvalue);
@@ -708,13 +709,18 @@ double egHWU::hwu_inter(vector<double> & x, GTmat_ & Wt)
 		}
 	}
 
-	//cout<<_Y.sum()<<"\n";
-	//cout<<_Y.squaredNorm()<<"\n";
+	// cout<<_Y.sum()<<"\n";
+	// cout<<_Y.squaredNorm()<<"\n";
+	// cout<<Wt.sum()<<"\n";
+	// cout<<Wt.squaredNorm()<<"\n";
 
 	double U= (_Y.transpose() * (Wt * _Y) ).sum();
 
 	Wt=Wt-(_X*_XXinv)*(_X.transpose()*Wt);
 	Wt=Wt-(Wt*_X)*(_XXinv*_X.transpose());
+
+	// cout<<Wt.sum()<<"\n";
+	// cout<<Wt.squaredNorm()<<"\n";
 
 	return U;
 }
@@ -893,6 +899,14 @@ double egHWU::hwu_inter_stdUfloat(vector<float> & x)
 
 double egHWU::hwu_liu(vector<double> & x)
 {
+	if(Stat_fuc::norm(x) < 1e-10){
+		_df_vec.push_back(-1);
+		_ncp_vec.push_back(-1);
+		_q_vec.push_back(-1);
+		_weightU.push_back(0);
+		return 0.5;
+	}
+
 	GTmat_ Wt;
 
 	double U=hwu_inter(x,Wt);

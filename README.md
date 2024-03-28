@@ -60,9 +60,24 @@ hwu --bfile NIC --hwu --screen 2 --wIBS-wt --mp 7  --PCwt 20 --out NIC.rst
 
 --screen `int`: screen SNPs using standardized HWU, and calculate p-value of highest ranked `int` SNPs (for ultra-high demensional scan)
 
-##compilation
+##compilation&build
 
-###For visual studio
+First download [Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page) and [Boost](https://www.boost.org/doc/libs/1_55_0/) under code/dependency. Unzip both, and then install boost by following steps [here](https://www.boost.org/doc/libs/1_55_0/more/getting_started/unix-variants.html#easy-build-and-install).
+
+###For g++
+
+For release:
+    g++ -static -L dependency/boost_1_55_0/stage/lib -I dependency/eigen-3.4.0 -I dependency/boost_1_55_0 -pthread -msse2 *.cpp -lboost_system -lboost_thread -lrt -w -O3 -o build/hwu
+
+For debug:
+    g++ -static -L dependency/boost_1_55_0/stage/lib -I dependency/eigen-3.4.0 -I dependency/boost_1_55_0 -pthread -msse2 -g *.cpp -lboost_system -lboost_thread -lrt -w -O3 -o build/hwu_debug
+
+###For VS code
+
+Follow steps [here](https://code.visualstudio.com/docs/cpp/introvideos-cpp). And refer to above g++ for args needed in corresponding json config.
+
+
+###For visual studio (2015 version, outdated)
 
 Make sure you compile with optimization enabled. This can easily gain you a factor of ten or more.
 
@@ -81,6 +96,4 @@ need to build boost lib
     run b2
     go to properties->linker->general->additional library, add "$Root$\boost\boost_1_55_0\stage\lib"
 
-###For g++
 
-    g++ -static -L boost_1_55_0/stage/lib -I eigen -I boost_1_55_0 -pthread -msse2 *.cpp -lboost_system -lboost_thread -lrt -w -O3 -o hwu
