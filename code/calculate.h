@@ -80,6 +80,7 @@ namespace Stat_fuc
 	bool emprical_CI(vector<double> & arr, double & Upper, double & Lower, double pct);
 	double median(vector<double> & arr);
 	double mean(vector<double> & arr);
+	double norm(vector<double> &arr);
 	double sum(vector<double> & arr);
 	void indexx(vector<double> &arr, vector<int> & indx);
 

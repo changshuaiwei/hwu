@@ -965,6 +965,12 @@ void HWU::prepareX(int i_snp, vector<double> &x)
 		if(tst_minor>1.0) x[x_rcd[i]]=2-tst_minor;
 		else x[x_rcd[i]]=tst_minor;
 	}
+
+	//avoid 0 matrix (in case only a few SNP is >0)
+	double miu = (tst_minor>1.0) ? 2-tst_minor : tst_minor;
+	if(par::gsim_add){
+		for(int i=0; i<x.size(); i++) x[i]=x[i]-miu;
+	}
 }
 
 double HWU::hwu_i(int i_snp)

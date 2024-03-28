@@ -137,6 +137,8 @@ void egHWU::sgLocusAssoc()
 		x.clear();
 		//cout<<":"<<(_datafile->getLocus(i))->name;
 		prepareX(i,x);
+		// cout<<Stat_fuc::mean(x)<<"\n";
+		// cout<<Stat_fuc::norm(x)<<"\n";
 
 		pvalue=hwu_liu(x);
 
@@ -708,13 +710,18 @@ double egHWU::hwu_inter(vector<double> & x, GTmat_ & Wt)
 		}
 	}
 
-	//cout<<_Y.sum()<<"\n";
-	//cout<<_Y.squaredNorm()<<"\n";
+	// cout<<_Y.sum()<<"\n";
+	// cout<<_Y.squaredNorm()<<"\n";
+	// cout<<Wt.sum()<<"\n";
+	// cout<<Wt.squaredNorm()<<"\n";
 
 	double U= (_Y.transpose() * (Wt * _Y) ).sum();
 
 	Wt=Wt-(_X*_XXinv)*(_X.transpose()*Wt);
 	Wt=Wt-(Wt*_X)*(_XXinv*_X.transpose());
+
+	// cout<<Wt.sum()<<"\n";
+	// cout<<Wt.squaredNorm()<<"\n";
 
 	return U;
 }
