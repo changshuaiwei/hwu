@@ -40,10 +40,15 @@ public:
 	static double replace0_sml;// =0.00001
 
 	static bool read_bitfile;
+
 	static string fileroot;
 	static string bitfilename;
 	static string bitfilename_map;
 	static string famfile;
+
+	static bool read_vcf;
+	static string vcffile;
+	
 
 	static bool qt;//quantitative trait
 	static bool bt;//binary trait

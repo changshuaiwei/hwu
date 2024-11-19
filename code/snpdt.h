@@ -510,10 +510,12 @@ public:
 	void test();
 
 	void readBinData();
+	void readVcfData();
 
 	bool openBinaryFile(string, ifstream &);
 
 	void readFamFile(string filename);
+	void readVCFHeader(string filename);
 	void getFamInfo(vector<Individual*> & fam);
 	void readPopuFile(string filename);
 	void getPopuInfo(vector<Individual*> & popu);
@@ -527,6 +529,8 @@ public:
 
 	void readSnpSet();
 	void readSnpSet2Cols();
+
+	
 
 	vector<int> readExtSnpF(string filename);
 
@@ -584,7 +588,18 @@ public:
 	inline Individual * getIndividual(int indi);
 	inline int fID(int indi);
 
+	// Getter methods for accessing private members
+    const std::vector<std::string>& getSampleIds() const { return sample_ids; }
+    const std::vector<std::string>& getVariantIds() const { return variant_ids; }
+    const std::vector<std::vector<int>>& getGenotypes() const { return genotypes; }
+
 private:
+
+	// Private members
+    std::vector<std::string> sample_ids;      // Sample IDs from the VCF file
+    std::vector<std::string> variant_ids;     // Variant IDs (e.g., rsIDs)
+    std::vector<std::vector<int>> genotypes;  // Genotypes for each sample and variant
+	
 	// Genotype/phenotype per individual file
 	vector<Individual*>	_sample; 
 	vector<string> _cov_name;

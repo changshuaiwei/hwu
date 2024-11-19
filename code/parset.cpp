@@ -83,6 +83,13 @@ void gfun::setPar(CArg &a)
 		par::genfile = par::fileroot + ".gen";
 	}
 
+	if (a.find("--vcf")) 
+	{ 
+		par::read_vcf = true;
+		par::fileroot = a.value("--vcf");
+		par::vcffile = par::fileroot + ".vcf";
+	}
+
 	if(a.find("--hwu"))
 	{
 		par::hwu_run=true;
@@ -642,6 +649,8 @@ bool par::silent=false;
 double par::replace0_cor=0.5;
 double par::replace0_sml=0.00001;
 bool par::read_bitfile=false;
+
+
 string par::fileroot="";
 string par::bitfilename="";
 string par::bitfilename_map="";
@@ -664,6 +673,9 @@ string par::pedfile = "";
 string par::mapfile = "";
 string par::genfile = "";
 bool par:: recode=false;
+
+bool par::read_vcf = false;
+string par::vcffile = "";
 
 int par::most_nsnp=10;
 double par::largest_auc=0.9;

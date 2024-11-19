@@ -53,6 +53,7 @@ public:
 	void printLOG(string);
 	void readBinData();
 	void readPedData();
+	void readVcfData();
 	void readCovData();
 	void readPheData();
 	void readPheMat();

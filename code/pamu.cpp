@@ -55,6 +55,7 @@ int main(int argc, char* argv[])
 	////input data
 	if (par::read_bitfile) P.readBinData();
 	else if(par::read_ped) P.readPedData();
+	else if(par::read_vcf) P.readVcfData();
 
 	///get covariate data
 	if(par::cov_read) P.readCovData();
@@ -165,6 +166,11 @@ void Pamu::readBinData()
 void Pamu::readPedData()
 {
 	_data->readGenMapPed();
+}
+
+void Pamu::readVcfData()
+{
+	_data->readVcfData();
 }
 
 void Pamu::readCovData()
