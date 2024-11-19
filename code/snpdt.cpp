@@ -1,4 +1,16 @@
 #include "snpdt.h"
+#include <htslib/vcf.h>
+
+
+vector<string> split(const string& s, char delimiter) {
+    vector<string> tokens;
+    string token;
+    istringstream tokenStream(s);
+    while (getline(tokenStream, token, delimiter)) {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
 
 snpdt::snpdt()
 {
@@ -35,6 +47,31 @@ void snpdt::test()
 	cout<<"\ntest snpdt class\n";
 	//add code here...
 }
+
+int chromosomeStringToInt(const std::string& chromStr)
+{
+    if (chromStr == "X")
+        return 23;
+    else if (chromStr == "Y")
+        return 24;
+    else if (chromStr == "MT" || chromStr == "M")
+        return 25;
+    else if (chromStr == "XY")
+        return 26; // If needed
+    else
+    {
+        // Try to convert to integer
+        try
+        {
+            return std::stoi(chromStr);
+        }
+        catch (std::invalid_argument&)
+        {
+            return 0; // Unknown chromosome
+        }
+    }
+}
+
 
 void snpdt::readBinData()
 {
@@ -253,6 +290,227 @@ void snpdt::readBinData()
 	// If need be, now prune the MAP file 
 	// i.e. if --chr or --from/--to were used
 
+}
+
+
+
+// Version 1 of the readVcfData - Most closest to the Output
+void snpdt::readVcfData()
+{
+    // Check if the VCF file exists
+    gfun::checkFileExists(par::vcffile);
+
+    gfun::printLOG("Reading [ " + par::vcffile + " ] \n");
+
+    vector<Locus> ordered;
+
+    ifstream VCF(par::vcffile.c_str(), ios::in);
+    VCF.clear();
+
+    int c = 0;
+    string line;
+	while (std::getline(VCF, line))
+	{
+		// Skip header lines
+		if (line[0] == '#')
+			continue;
+
+		std::stringstream ss(line);
+		std::string field;
+		Locus* loc = new Locus;
+
+		// Read chromosome as a string first, then convert to integer
+		std::getline(ss, field, '\t');    
+		loc->chr = std::stoi(field);   // Convert to integer
+		
+		std::getline(ss, field, '\t');       // Position
+		loc->bp = std::stoi(field);          // Convert to integer for base-pair position
+		
+		std::getline(ss, loc->name, '\t');   // SNP ID
+		std::getline(ss, loc->allele2, '\t'); // Reference allele
+		std::getline(ss, loc->allele1, '\t'); // Alternate allele
+
+
+		// Skip unnecessary VCF columns (QUAL, FILTER, INFO)
+		for (int i = 0; i < 3; i++)
+			std::getline(ss, field, '\t');
+
+		// Store the order information temporarily
+		loc->freq = c++;
+
+		// Check if locus name (ID) is present
+		if (!loc->name.empty())
+		{
+			_locus.push_back(loc);
+			ordered.push_back(*loc);
+		}
+		else
+		{
+			delete loc;
+		}
+	}
+
+    gfun::printLOG(int2str(_locus.size()) + " markers in [ " + par::vcffile + " ]\n");
+
+    VCF.clear();
+    VCF.close();
+
+    if (_locus.size() == 0)
+        gfun::shutdown();
+
+    stable_sort(_locus.begin(), _locus.end(), less<Locus*>());
+    stable_sort(ordered.begin(), ordered.end());
+
+    c = 0;
+    for (int i = 0; i < _locus.size(); i++)
+    {
+        ordered[i].bp = static_cast<int>(ordered[i].freq);
+        ordered[i].chr = 1; 
+        ordered[i].freq = c++;
+    }
+
+    stable_sort(ordered.begin(), ordered.end());
+
+    vector<int> include(0);
+    int nl_actual = _locus.size();
+    for (int j = 0; j < ordered.size(); j++)
+        include.push_back(static_cast<int>(ordered[j].freq));
+
+    readVCFHeader(par::vcffile);
+
+    // Allocate space for SNPs
+    for (int i = 0; i < nl_actual; i++)
+    {
+        CSNP* newlocus = new CSNP;
+        newlocus->one.resize(_sample.size());
+        newlocus->two.resize(_sample.size());
+        _SNP.push_back(newlocus);
+    }
+
+    // Read genotype data from the VCF
+	ifstream VCFGenotypes(par::vcffile.c_str(), ios::in);
+	while (getline(VCFGenotypes, line))
+	{
+		// Skip header lines
+		if (line[0] == '#')
+			continue;
+
+		stringstream ss(line);
+		string field;
+		static int s = 0;  // Keep track of SNP index
+
+		// Skip the first 9 columns (VCF metadata fields)
+		for (int i = 0; i < 9; i++)
+			getline(ss, field, '\t');
+
+		// Loop through the samples/individuals
+		for (int indx = 0; indx < _sample.size(); indx++)
+		{
+			getline(ss, field, '\t');
+
+			if (s >= include.size() || include[s] >= _SNP.size()) {
+				std::cerr << "Error: s = " << s << ", include[s] = " << include[s] 
+						<< ", _SNP.size() = " << _SNP.size() << std::endl;
+				exit(1);
+			}
+
+			if (include[s] > -1)
+			{
+				CSNP* snp = _SNP[include[s]];
+				if (snp == nullptr) {
+					std::cerr << "Error: snp is nullptr at s = " << s << std::endl;
+					exit(1);
+				}
+
+				// std::cout << "Processing sample " << indx << ", SNP " << s << std::endl;
+
+				if (field[0] == '0' || field[0] == '.')
+					snp->one[indx] = 0;  // Reference allele (0)
+				else
+					snp->one[indx] = 1;  // Alternate allele (1)
+
+				if (field[2] == '0' || field[2] == '.')
+					snp->two[indx] = 0;  // Reference allele (0)
+				else
+					snp->two[indx] = 1;  // Alternate allele (1)
+			}
+		}
+
+		s++;  // Increment SNP index only after processing all samples for this SNP
+	}
+
+
+    VCFGenotypes.clear();
+    VCFGenotypes.close();
+
+    gfun::printLOG("Finished reading VCF data\n");
+}
+
+
+void snpdt::readVCFHeader(string vcfFilename)
+{
+    gfun::printLOG("Reading [ " + vcfFilename + " ] \n");
+
+    gfun::checkFileExists(vcfFilename);
+
+    ifstream VCF;
+    VCF.open(vcfFilename.c_str());
+    VCF.clear();
+
+    string line;
+    int c = 0;
+
+    // Read through the VCF file to find the header line
+    while (std::getline(VCF, line))
+    {
+        // Skip lines that are not the header
+        if (line.substr(0, 6) != "#CHROM")
+            continue;
+
+        std::stringstream ss(line);
+        string field;
+
+        // Skip the first 9 columns (standard VCF columns)
+        for (int i = 0; i < 9; ++i)
+            std::getline(ss, field, '\t');
+
+        // Read individual sample IDs from the header
+        while (std::getline(ss, field, '\t'))
+        {
+            Individual* person = new Individual;
+
+            // Assign the sample ID (individual ID)
+            person->iid = field;
+
+            // Default values for family ID, parents, sex, and phenotype
+            person->fid = "0";          // Assign a default family ID
+            person->pat = "0";          // No paternal ID available in VCF
+            person->mat = "0";          // No maternal ID available in VCF
+            person->sex = par::missing_int; // Sex unknown by default. Set to -9
+            person->pheno_str = "0";    // Default phenotype (can be adjusted later)
+            person->aff = -1;           // Undefined affection status
+
+            // Set the family number (for this example, default to 0)
+            person->nfid = 0;
+
+            // Increase person counter
+            c++;
+
+            // Add individual to list
+            _sample.push_back(person);
+        }
+
+        // Break after processing the header
+        break;
+    }
+
+    VCF.clear();
+    VCF.close();
+
+    gfun::printLOG(int2str(c) + " individuals found in VCF file [ " + vcfFilename + " ] \n");
+
+    if (_sample.size() == 0)
+        gfun::shutdown();
 }
 
 
@@ -618,6 +876,9 @@ vector<int> snpdt::readExtSnpF(string filename)
 	return idx2;
 
 }
+
+
+
 
 void snpdt::readPheFile(string filename)
 {
