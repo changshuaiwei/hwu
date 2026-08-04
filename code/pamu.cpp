@@ -54,7 +54,8 @@ int main(int argc, char* argv[])
 
 	////input data
 	if (par::read_bitfile) P.readBinData();
-	else if(par::read_ped) P.readPedData();
+	else if (par::read_ped) P.readPedData();
+	else if (par::read_vcf) P.readVcfData();
 
 	///get covariate data
 	if(par::cov_read) P.readCovData();
@@ -198,6 +199,14 @@ void Pamu::readSnpSet()
 	}else if(par::read_setC){
 		_data->readSnpSet2Cols();
 	}
+}
+
+void Pamu::readVcfData()
+{
+    // read fam (for sample order alignment) when par::famfile is not empty
+    if (!par::famfile.empty())
+        _data->readFamFile(par::famfile);
+    _data->readVCFData(par::vcffile);
 }
 
 void Pamu::write_BITFILE()

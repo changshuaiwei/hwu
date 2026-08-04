@@ -58,6 +58,7 @@ public:
 	void readPheMat();
 	void readPopuInfo();
 	void readSnpSet();
+	void readVcfData();
 	void write_BITFILE();
 	void write_PEDFILE();
 	void assocGTU();

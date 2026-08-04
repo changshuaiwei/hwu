@@ -695,7 +695,7 @@ namespace TRL{
 	double pow_di(doublereal_ *ap, integer_ *bp);
 	/*integer_ s_wsfe(cilist_ *a)*/
 
-	void s_copy(register char *a, register char *b, ftnlen_ la, ftnlen_ lb);
+	void s_copy(char *a, char *b, ftnlen_ la, ftnlen_ lb);
 	//
 	integer_ s_cmp(char *a0, char *b0, ftnlen_ la, ftnlen_ lb);
 	double d_sign(doublereal_ *a, doublereal_ *b);
