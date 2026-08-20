@@ -1921,6 +1921,289 @@ void snpdt::readGenMapPed()
 
 }
 
+// write -9/0/1/2 to the bits of _SNP with the same missing coding as PLINK
+inline void snpdt::writeDiploidGT(int indi, int snp, int gt_code)
+{
+    bool s1, s2;
+    if (gt_code == 0) { s1=false; s2=false; }       // A1/A1
+    else if (gt_code == 1) { s1=false; s2=true; }   // A1/A2
+    else if (gt_code == 2) { s1=true;  s2=true; }   // A2/A2
+    else /* -9 or others */ { s1=true;  s2=false; }   // missing (10)
+    _SNP[snp]->one[indi] = s1;
+    _SNP[snp]->two[indi] = s2;
+}
+
+static inline int vcfChrTokenToInt(const std::string &tok)
+{
+    // support "1..22", "X","Y","MT", and "chr" prefix
+    std::string s = tok;
+    if (s.size() >= 3 && (s.substr(0,3)=="chr" || s.substr(0,3)=="CHR"))
+        s = s.substr(3);
+    if (s=="X"||s=="x") return 23;
+    if (s=="Y"||s=="y") return 24;
+    if (s=="MT"||s=="Mt"||s=="mt"||s=="M") return 25;
+    int v=0;
+    std::istringstream(s) >> v;
+    if (v<=0) return 95; // non-standard chromosome
+    return v;
+}
+
+void snpdt::readVCFData(const std::string &vcf_path)
+{
+    using std::string;
+    using std::vector;
+
+    gfun::printLOG("Reading [ " + vcf_path + " ] (VCF 4.2)\n");
+    gfun::checkFileExists(vcf_path);
+
+    std::ifstream VCF(vcf_path.c_str());
+    if (!VCF) gfun::error("Cannot open VCF file: " + vcf_path + "\n");
+
+    string line;
+    vector<string> vcf_samples;   // sample columns parsed from #CHROM header
+    bool header_seen = false;
+
+    // If no FAM is read, use VCF to construct _sample
+    auto ensure_samples_from_vcf = [&](const vector<string> &names) {
+        if (_sample.empty()) {
+            for (size_t i = 0; i < names.size(); ++i) {
+                Individual * person = new Individual;
+                person->fid       = names[i];
+                person->iid       = names[i];
+                person->pat       = "0";
+                person->mat       = "0";
+                person->sexcode   = "0";
+                person->pheno_str = "-9";
+                person->sex       = par::missing_int;
+                person->aff       = par::missing_int;
+                person->phenotype = 0.0;
+                person->nfid      = -9;
+                _sample.push_back(person);
+            }
+            gfun::printLOG(int2str(_sample.size()) + " samples created from VCF header\n");
+        }
+    };
+
+    // construct VCF sample -> FAM sample index mapping (based on _sample order)
+    // vcf_to_fam[i_vcf] = i_fam (if the VCF sample exists in FAM); otherwise -1
+    vector<int> vcf_to_fam; // VCF sample -> _sample index; -1 for non-existent
+
+    // first scan to the #CHROM line, parse sample columns
+    while (std::getline(VCF, line)) {
+        if (line.size() >= 2 && line[0] == '#' && line[1] == '#') continue; // meta
+        if (!line.empty() && line[0] == '#') {
+            // header
+            std::istringstream iss(line);
+            vector<string> cols; cols.reserve(64);
+            string tok;
+            while (std::getline(iss, tok, '\t')) cols.push_back(tok);
+            if (cols.size() < 8 || cols[0] != "#CHROM") {
+                gfun::error("Malformed VCF header line (#CHROM ...)\n");
+            }
+
+            // from the 10th column onwards are sample columns
+            for (size_t i = 9; i < cols.size(); ++i) vcf_samples.push_back(cols[i]);
+            header_seen = true;
+
+            // If no FAM is read, use VCF to construct _sample; if FAM is read, align them
+            ensure_samples_from_vcf(vcf_samples);
+
+            // construct VCF sample -> FAM sample index mapping (based on _sample order)
+            std::map<string,int> fam_index;
+            for (int i = 0; i < (int)_sample.size(); ++i) {
+                fam_index[_sample[i]->iid] = i;
+            }
+            vcf_to_fam.assign(vcf_samples.size(), -1);
+            int hit = 0;
+            for (size_t i = 0; i < vcf_samples.size(); ++i) {
+                auto it = fam_index.find(vcf_samples[i]);
+                if (it != fam_index.end()) { vcf_to_fam[i] = it->second; ++hit; }
+            }
+            if (hit == 0) {
+                gfun::printLOG("Warning: no overlapping samples between VCF and FAM; all genotypes will be set missing.\n");
+            } else if (hit < (int)_sample.size()) {
+                gfun::printLOG("Info: " + int2str(hit) + " / " + int2str((int)_sample.size()) + " FAM samples found in VCF.\n");
+            }
+            break; // enter variant data section
+        }
+    }
+
+    if (!header_seen) gfun::error("No VCF header (#CHROM) found.\n");
+
+    // read variant data line by line
+    int kept = 0, skipped_multi = 0, skipped_noGT = 0, total = 0;
+
+    while (std::getline(VCF, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        ++total;
+
+        // split as columns
+        vector<string> cols;
+        cols.reserve(16);
+        {
+            std::istringstream iss(line);
+            string tok;
+            while (std::getline(iss, tok, '\t')) cols.push_back(tok);
+        }
+        if (cols.size() < 9) { /* also works without sample columns, but meaningless */ continue; }
+
+        const string &CHROM = cols[0];
+        const string &POS   = cols[1];
+        const string &ID    = cols[2];
+        const string &REF   = cols[3];
+        const string &ALT   = cols[4];
+        const string &FORMAT= cols[8];
+
+        // biallelic check: ALT cannot contain commas
+        if (ALT.find(',') != string::npos) { ++skipped_multi; continue; }
+
+        // find the GT field position in FORMAT
+        int gt_field_idx = -1;
+        {
+            vector<string> fmt;
+            std::istringstream fss(FORMAT);
+            string t;
+            int idx = 0;
+            while (std::getline(fss, t, ':')) {
+                if (t == "GT") { gt_field_idx = idx; break; }
+                ++idx;
+            }
+        }
+        if (gt_field_idx < 0) { ++skipped_noGT; continue; }
+
+        // create new Locus
+        Locus * loc = new Locus;
+        loc->chr     = vcfChrTokenToInt(CHROM);
+        loc->name    = (ID == "." ? CHROM + ":" + POS : ID);
+        loc->pos     = 0.0;       // cM unknown, set to 0
+        {
+            long bpv = 0;
+            std::istringstream(POS) >> bpv;
+            loc->bp = (int)bpv;
+        }
+        loc->allele1 = REF;       // A1=REF
+        loc->allele2 = ALT;       // A2=ALT
+        loc->freq    = 0.0;       // not used for now
+
+        _locus.push_back(loc);
+
+        // allocate genotype storage for this locus
+        CSNP * newlocus = new CSNP;
+        newlocus->one.resize(_sample.size());
+        newlocus->two.resize(_sample.size());
+        _SNP.push_back(newlocus);
+
+        const int snp_index = (int)_SNP.size() - 1;
+
+        // first set all samples to missing (to ensure samples in FAM but not in VCF are missing)
+        for (int i = 0; i < (int)_sample.size(); ++i) {
+            writeDiploidGT(i, snp_index, -9);
+        }
+
+        // parse GT for each VCF sample and write to the corresponding FAM index
+        for (size_t c = 9; c < cols.size(); ++c) {
+            int fam_i = (c - 9 < vcf_to_fam.size()) ? vcf_to_fam[c - 9] : -1;
+            if (fam_i < 0) continue; // this VCF sample is not in FAM (or no FAM)
+
+            const string &sample_field = cols[c];
+            // extract the "gt_field_idx"-th sub-field
+            string gt_field;
+            {
+                std::istringstream ss(sample_field);
+                string part; int idx = 0;
+                while (std::getline(ss, part, ':')) {
+                    if (idx == gt_field_idx) { gt_field = part; break; }
+                    ++idx;
+                }
+            }
+            if (gt_field.empty()) { writeDiploidGT(fam_i, snp_index, -9); continue; }
+
+            // support '/', '|' as separation, like "0/1", "1|0", "0/0", "1/1", "./.", ".|1"
+            int sep_pos = -1;
+            char sep = '/';
+            for (int k = 0; k < (int)gt_field.size(); ++k) {
+                if (gt_field[k] == '/' || gt_field[k] == '|') { sep_pos = k; sep = gt_field[k]; break; }
+            }
+            if (sep_pos <= 0 || sep_pos >= (int)gt_field.size() - 1) {
+                // single allele or format error, mark as missing
+                writeDiploidGT(fam_i, snp_index, -9);
+                continue;
+            }
+
+            auto allele_code = [&](char ch)->int {
+                if (ch == '.') return -1;
+                if (ch >= '0' && ch <= '9') return (int)(ch - '0'); // only 0/1 at biallelic
+                return -1;
+            };
+
+            int a1 = allele_code(gt_field[0]);
+            int a2 = allele_code(gt_field[sep_pos + 1]);
+
+            // any missing -> missing; allelic number > 1 (should not appear in biallelic) -> missing
+            if (a1 < 0 || a2 < 0 || a1 > 1 || a2 > 1) {
+                writeDiploidGT(fam_i, snp_index, -9);
+            } else {
+                int gt_code = -9;
+                if (a1 == 0 && a2 == 0) gt_code = 0;
+                else if ((a1 == 0 && a2 == 1) || (a1 == 1 && a2 == 0)) gt_code = 1;
+                else if (a1 == 1 && a2 == 1) gt_code = 2;
+                else gt_code = -9;
+                writeDiploidGT(fam_i, snp_index, gt_code);
+            }
+        }
+
+        ++kept;
+    }
+
+    VCF.close();
+
+    gfun::printLOG("VCF variants total: " + int2str(total)
+        + ", kept (biallelic with GT): " + int2str(kept)
+        + ", skipped multi-allelic: " + int2str(skipped_multi)
+        + ", skipped w/o GT: " + int2str(skipped_noGT) + "\n");
+
+    // keep the same ordering and include logic as readBinData():
+    // sort by (chr,bp) stably (_locus / _SNP)
+    vector<int> ord(_locus.size());
+    for (int i = 0; i < (int)ord.size(); ++i) ord[i] = i;
+
+    // try to convert chr to number for more natural sorting (X/Y/MT at the end)
+    auto chr_rank = [](const string &chr)->long long {
+        if (chr == "X" || chr == "x") return 23;
+        if (chr == "Y" || chr == "y") return 24;
+        if (chr == "MT" || chr == "Mt" || chr == "mt" || chr == "M") return 25;
+        // delete prefix "chr"
+        string s = chr;
+        if (s.size() > 3 && (s.substr(0,3)=="chr" || s.substr(0,3)=="CHR")) s = s.substr(3);
+        long long v = 0;
+        std::istringstream(s) >> v;
+        if (v <= 0) v = 100 + (long long)std::hash<string>{}(chr)%100; // non-standard chromosome
+        return v;
+    };
+
+    std::stable_sort(ord.begin(), ord.end(), [&](int a, int b){
+        //long long ra = chr_rank(_locus[a]->chr);
+        //long long rb = chr_rank(_locus[b]->chr);
+        //if (ra != rb) return ra < rb;
+		if (_locus[a]->chr != _locus[b]->chr)
+            return _locus[a]->chr < _locus[b]->chr;
+        return _locus[a]->bp < _locus[b]->bp;
+    });
+
+    // sort _locus / _SNP again
+    vector<Locus*> locus2; locus2.reserve(_locus.size());
+    vector<CSNP*>  snp2;   snp2.reserve(_SNP.size());
+    for (int idx : ord) {
+        locus2.push_back(_locus[idx]);
+        snp2.push_back(_SNP[idx]);
+    }
+    _locus.swap(locus2);
+    _SNP.swap(snp2);
+
+    // set mode to SNP-major, consistent with subsequent processes
+    par::SNP_major = true;
+}
+
 vector<int> snpdt::matchName(vector<string> names)
 {
 	vector<int> colidx; colidx.resize(names.size(),par::missing_int);

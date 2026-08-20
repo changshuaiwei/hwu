@@ -528,6 +528,8 @@ public:
 	void readSnpSet();
 	void readSnpSet2Cols();
 
+	void readVCFData(const std::string &vcf_path);
+
 	vector<int> readExtSnpF(string filename);
 
 	void clear();
@@ -614,6 +616,8 @@ private:
 	//snpset information
 	vector<string> _setname;
 	vector<vector<int> > _snpset;
+
+	inline void writeDiploidGT(int indi, int snp, int gt_code);
 
 	bool _resample;
 	bool _relocus;

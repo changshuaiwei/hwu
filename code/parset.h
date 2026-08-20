@@ -216,6 +216,10 @@ public:
 	static bool read_popu_info;
 	static string f_popu_info;
 
+	// ---- support VCF ----
+	static bool read_vcf;        // reading a VCF file or not
+	static string vcffile;       // VCF file path
+
 };
 
 

@@ -5,7 +5,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#ifdef __APPLE__
+#include <malloc/malloc.h>
+#else
 #include <malloc.h>
+#endif
 #include <setjmp.h>
 #include <vector>
 #include <string>

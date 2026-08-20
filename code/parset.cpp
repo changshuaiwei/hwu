@@ -82,6 +82,24 @@ void gfun::setPar(CArg &a)
 		par::mapfile = par::fileroot + ".map";
 		par::genfile = par::fileroot + ".gen";
 	}
+	
+	// specifying FAM (for VCF order alignment)
+	if (a.find("--fam"))
+	{
+		par::famfile = a.value("--fam");
+	}
+
+	if (a.find("--vcf")) 
+	{
+		par::read_vcf = true;
+		par::vcffile = a.value("--vcf");
+	}
+	// support the flag --read-vcf
+	if (!par::read_vcf && a.find("--read-vcf"))
+	{
+		par::read_vcf = true;
+		par::vcffile = a.value("--read-vcf");
+	}
 
 	if(a.find("--hwu"))
 	{
@@ -786,7 +804,8 @@ bool par::run_csv2ped=false;
 string par::fmt_csv="csv.csv";
 string par::fmt_ped="ped.ped";
 
-
+bool par::read_vcf=false;
+string par::vcffile="";
 
 
 
